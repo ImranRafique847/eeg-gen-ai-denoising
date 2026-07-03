@@ -1,0 +1,53 @@
+[
+  {
+    "model": "CompactVAE-nano",
+    "params": 3880,
+    "file_mb": 0.022,
+    "gpu_latency_mean_ms": 2.493,
+    "gpu_latency_std_ms": 0.897,
+    "gpu_latency_p95_ms": 3.927,
+    "gpu_power_w": 11.57,
+    "energy_per_inference_mj": 28.8448,
+    "battery_life_hours_1hz": 0.1,
+    "cpu_latency_mean_ms": 1.17,
+    "cpu_latency_p95_ms": 1.44,
+    "snr_db": 1.3733,
+    "ssim": 0.2941,
+    "mse": 0.727102,
+    "pearson": 0.7534
+  },
+  {
+    "model": "CompactVAE-micro",
+    "params": 11920,
+    "file_mb": 0.053,
+    "gpu_latency_mean_ms": 1.923,
+    "gpu_latency_std_ms": 0.61,
+    "gpu_latency_p95_ms": 3.15,
+    "gpu_power_w": 11.72,
+    "energy_per_inference_mj": 22.537,
+    "battery_life_hours_1hz": 0.1,
+    "cpu_latency_mean_ms": 1.27,
+    "cpu_latency_p95_ms": 1.59,
+    "snr_db": 1.3069,
+    "ssim": 0.2643,
+    "mse": 0.582324,
+    "pearson": 0.7598
+  },
+  {
+    "model": "CompactVAE-mini",
+    "params": 25152,
+    "file_mb": 0.103,
+    "gpu_latency_mean_ms": 1.879,
+    "gpu_latency_std_ms": 0.426,
+    "gpu_latency_p95_ms": 2.876,
+    "gpu_power_w": 11.85,
+    "energy_per_inference_mj": 22.2673,
+    "battery_life_hours_1hz": 0.1,
+    "cpu_latency_mean_ms": 1.24,
+    "cpu_latency_p95_ms": 1.64,
+    "snr_db": 2.0425,
+    "ssim": 0.2841,
+    "mse": 0.479859,
+    "pearson": 0.8003
+  }
+]
