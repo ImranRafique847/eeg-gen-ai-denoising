@@ -4,19 +4,23 @@ Closed-Loop BCI Simulation Results
 Pipeline
   noisy EEG -> CompactVAE-mini -> EEGTransformerClassifier-tiny
 
-Classification accuracy
-  without denoising : 24.11%
-  with denoising    : 24.55%
-  improvement       : +0.45 pp
+Classifier trained on NOISY data
+  accuracy (noisy input)    : 100.00%
+  accuracy (denoised input) : 97.32%
+  improvement               : -2.68 pp
+
+Classifier trained on DENOISED data (matched)
+  accuracy (denoised input) : 95.98%
+  vs baseline               : -4.02 pp
 
 Signal quality vs clean ground truth
-  SNR before : 1.7474 dB
-  SNR after  : 1.8385 dB
-  SNR gain   : +0.0911 dB
+  SNR before : -5.0737 dB
+  SNR after  : -4.7004 dB
+  SNR gain   : +0.3732 dB
 
 End-to-end latency (single trial, batch=1)
-  denoising step : 1.6234 ms
-  classification : 3.7040 ms
-  total mean     : 5.9084 ms
-  total p95      : 7.5695 ms
-  real-time pass : yes (<20ms threshold)
+  denoising step : 2.0504 ms
+  classification : 6.7942 ms
+  total mean     : 7.4925 ms
+  total p95      : 11.5003 ms
+  real-time pass : yes (<20ms)

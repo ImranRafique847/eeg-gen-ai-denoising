@@ -191,6 +191,139 @@ def generate_synthetic_eeg(
     )
 
 
+def generate_mi_eeg(
+    n_samples: int = 1000,
+    n_channels: int = 64,
+    signal_length: int = 256,
+    fs: int = 256,
+    n_classes: int = 4,
+    snr_db: float = 5.0,
+    artifact_prob: float = 0.4,
+    seed: int = 0,
+):
+    """
+    Generate labeled Motor Imagery EEG with class-discriminative features.
+
+    Each MI class has a distinct dominant frequency and spatial pattern,
+    simulating the event-related desynchronisation (ERD) and synchronisation
+    (ERS) effects that real MI produces:
+
+      Class 0 (left hand)  — mu-band (9 Hz) ERD over right motor channels
+      Class 1 (right hand) — mu-band (11 Hz) ERD over left motor channels
+      Class 2 (feet)       — beta-band (20 Hz) ERS over central channels
+      Class 3 (tongue)     — low-beta (15 Hz) + frontal gamma (35 Hz)
+
+    These are caricatures of real MI patterns, but they give the classifier
+    genuinely class-discriminative features to learn — unlike round-robin
+    index labels applied to identical EEG signals.
+
+    Returns:
+        data:   (n_samples, n_channels, signal_length) float32 — noisy EEG
+        labels: (n_samples,) int64 — class indices 0..n_classes-1
+    """
+    # per-class dominant frequency and affected channel region
+    class_profiles = [
+        {"freq": 9.0,  "channels": slice(n_channels // 2, n_channels),     "erd_strength": 1.8},  # left hand
+        {"freq": 11.0, "channels": slice(0, n_channels // 2),               "erd_strength": 1.8},  # right hand
+        {"freq": 20.0, "channels": slice(n_channels // 4, 3 * n_channels // 4), "erd_strength": 2.2},  # feet
+        {"freq": 15.0, "channels": slice(0, n_channels // 3),               "erd_strength": 1.5},  # tongue
+    ]
+
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, signal_length / fs, signal_length, endpoint=False)
+    mix_matrix = _spatial_mixing_matrix(n_channels, rng)
+
+    n_per_class = n_samples // n_classes
+    # make balanced classes — total may differ by up to n_classes-1
+    class_counts = [n_per_class] * n_classes
+    for i in range(n_samples - n_per_class * n_classes):
+        class_counts[i] += 1
+
+    all_data   = []
+    all_labels = []
+
+    for cls, count in enumerate(class_counts):
+        profile = class_profiles[cls % len(class_profiles)]
+
+        for _ in range(count):
+            trial = np.zeros((n_channels, signal_length))
+
+            for c in range(n_channels):
+                # base EEG: mixture of all bands
+                sig = np.zeros(signal_length)
+                for _, (low, high, weight) in EEG_BANDS.items():
+                    freq = rng.uniform(low, high)
+                    phase = rng.uniform(0, 2 * np.pi)
+                    amp = rng.uniform(0.7, 1.3) * weight
+                    sig += amp * np.sin(2 * np.pi * freq * t + phase)
+
+                # class-discriminative: boost dominant frequency in affected channels
+                ch_slice = profile["channels"]
+                if isinstance(ch_slice, slice):
+                    in_region = ch_slice.start <= c < ch_slice.stop
+                else:
+                    in_region = c in ch_slice
+
+                if in_region:
+                    phase = rng.uniform(0, 2 * np.pi)
+                    amp   = profile["erd_strength"] * rng.uniform(0.8, 1.2)
+                    sig  += amp * np.sin(2 * np.pi * profile["freq"] * t + phase)
+
+                sig /= (np.std(sig) + 1e-8)
+                trial[c] = sig
+
+            # spatial mixing
+            trial = mix_matrix @ trial
+
+            # pink noise background
+            noisy_trial = trial.copy()
+            for c in range(n_channels):
+                pink = _pink_noise(signal_length, rng)
+                sig_power  = np.mean(trial[c] ** 2)
+                snr_linear = 10 ** (snr_db / 10.0)
+                noise_amp  = np.sqrt(sig_power / snr_linear)
+                noisy_trial[c] += pink * noise_amp
+
+            # probabilistic artifacts
+            if rng.random() < artifact_prob:
+                frontal = slice(0, max(n_channels // 3, 1))
+                blink = _eog_blink_artifact(signal_length, fs, rng,
+                                            n_blinks=rng.integers(1, 3))
+                noisy_trial[frontal] += blink[None, :] * rng.uniform(
+                    0.6, 1.0, size=(noisy_trial[frontal].shape[0], 1)
+                )
+
+            all_data.append(noisy_trial)
+            all_labels.append(cls)
+
+    # shuffle so classes aren't in order
+    idx = rng.permutation(len(all_data))
+    data_arr   = np.array(all_data,   dtype=np.float32)[idx]
+    labels_arr = np.array(all_labels, dtype=np.int64)[idx]
+
+    return torch.from_numpy(data_arr), torch.from_numpy(labels_arr)
+
+
+class MIDatasetLabeled(Dataset):
+    """Labeled Motor Imagery dataset with class-discriminative synthetic EEG."""
+
+    def __init__(self, n_samples: int = 1000, n_channels: int = 64,
+                 signal_length: int = 256, n_classes: int = 4,
+                 snr_db: float = 5.0, artifact_prob: float = 0.4,
+                 seed: int = 0):
+        self.data, self.labels = generate_mi_eeg(
+            n_samples=n_samples, n_channels=n_channels,
+            signal_length=signal_length, n_classes=n_classes,
+            snr_db=snr_db, artifact_prob=artifact_prob, seed=seed,
+        )
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.labels[idx]
+
+
 class EEGDenoisingDataset(Dataset):
     """PyTorch Dataset wrapping synthetic EEG clean/noisy pairs."""
 
